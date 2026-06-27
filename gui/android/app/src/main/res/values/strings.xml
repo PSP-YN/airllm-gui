@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AirLLM</string>
+    <string name="channel_inference_name">AirLLM Inference</string>
+    <string name="channel_inference_desc">Running local AI inference on your device</string>
+</resources>

@@ -1,0 +1,15 @@
+# Rust build artifacts
+target/
+Cargo.lock
+
+# Node
+node_modules/
+dist/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.iml

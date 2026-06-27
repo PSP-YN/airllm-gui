@@ -1,0 +1,232 @@
+name: Build & Release Native Apps
+
+on:
+  push:
+    tags:
+      - 'v*'           # Trigger on: git tag v1.0.0 && git push --tags
+  workflow_dispatch:    # Allow manual trigger from GitHub UI
+
+permissions:
+  contents: write       # needed to create/update GitHub Releases
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────
+  # JOB 1: Desktop — Linux AppImage/deb/rpm + Windows NSIS installer
+  # ──────────────────────────────────────────────────────────────────
+  build-desktop:
+    name: Desktop (${{ matrix.platform.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os: ubuntu-22.04
+            label: Linux
+            rust_target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            label: Windows
+            rust_target: x86_64-pc-windows-msvc
+
+    runs-on: ${{ matrix.platform.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: gui/desktop/package-lock.json
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform.rust_target }}
+
+      - name: Cache Rust/Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            gui/desktop/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('gui/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # ── Linux-only system dependencies ──
+      - name: Install Linux system deps
+        if: matrix.platform.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev \
+            libssl-dev
+
+      # ── Windows-only: WebView2 is pre-installed on windows-latest ──
+      # No extra deps needed for Windows
+
+      - name: Install frontend deps
+        working-directory: gui/desktop
+        run: npm ci
+
+      - name: Generate Tauri icons
+        working-directory: gui/desktop
+        run: npx @tauri-apps/cli icon src-tauri/icons/icon-source.png
+
+      - name: Build Tauri (Linux)
+        if: matrix.platform.os == 'ubuntu-22.04'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: gui/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: 'AirLLM ${{ github.ref_name }}'
+          releaseBody: |
+            ## AirLLM ${{ github.ref_name }}
+
+            Run large language models on any hardware — no cloud required.
+
+            ### Downloads
+            | Platform | File | Notes |
+            |---|---|---|
+            | 🪟 Windows | `AirLLM_x64-setup.exe` | NSIS installer, no admin required |
+            | 🐧 Linux   | `AirLLM_amd64.AppImage` | Portable, run directly |
+            | 🐧 Linux   | `AirLLM_amd64.deb` | Debian/Ubuntu installer |
+            | 🤖 Android | `airllm-release.apk` | Sideload (enable Unknown Sources) |
+
+            ### First run
+            The app checks for Python + AirLLM on startup and offers to install them automatically.
+          releaseDraft: true
+          prerelease: false
+          includeDebug: false
+          includeRelease: true
+          args: --target x86_64-unknown-linux-gnu
+
+      - name: Build Tauri (Windows)
+        if: matrix.platform.os == 'windows-latest'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: sign the Windows installer
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: gui/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: 'AirLLM ${{ github.ref_name }}'
+          releaseDraft: true
+          prerelease: false
+          includeDebug: false
+          includeRelease: true
+          args: --target x86_64-pc-windows-msvc
+
+  # ──────────────────────────────────────────────
+  # JOB 2: Android Release APK
+  # ──────────────────────────────────────────────
+  build-android:
+    name: Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK r26
+        run: |
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "ndk;26.1.10909125" \
+            "build-tools;34.0.0" \
+            "platforms;android-36"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('gui/android/**/*.gradle*', 'gui/android/**/libs.versions.toml') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - name: Make gradlew executable
+        working-directory: gui/android
+        run: chmod +x gradlew
+
+      - name: Build Release APK
+        working-directory: gui/android
+        run: ./gradlew assembleRelease --no-daemon
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+
+      - name: Sign APK
+        working-directory: gui/android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "Signing with release keystore…"
+            echo "$KEYSTORE_B64" | base64 -d > release.jks
+            $ANDROID_HOME/build-tools/34.0.0/zipalign -v 4 "$APK" aligned.apk
+            $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+              --ks release.jks \
+              --ks-key-alias "$KEY_ALIAS" \
+              --ks-pass "pass:$STORE_PASSWORD" \
+              --key-pass "pass:$KEY_PASSWORD" \
+              --out app/build/outputs/apk/release/airllm-release.apk \
+              aligned.apk
+            rm release.jks aligned.apk
+          else
+            echo "No keystore — using debug signing key…"
+            keytool -genkeypair -v -keystore debug.jks -alias debug \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=AirLLM,OU=Dev,O=AirLLM,L=Unknown,S=Unknown,C=US" \
+              -storepass android -keypass android -noprompt
+            $ANDROID_HOME/build-tools/34.0.0/zipalign -v 4 "$APK" aligned.apk
+            $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+              --ks debug.jks --ks-key-alias debug \
+              --ks-pass pass:android --key-pass pass:android \
+              --out app/build/outputs/apk/release/airllm-release.apk \
+              aligned.apk
+            rm debug.jks aligned.apk
+          fi
+          echo "APK ready:"
+          ls -lh app/build/outputs/apk/release/airllm-release.apk
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: gui/android/app/build/outputs/apk/release/airllm-release.apk
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload APK as artifact (non-tag builds)
+        uses: actions/upload-artifact@v4
+        with:
+          name: airllm-android-apk
+          path: gui/android/app/build/outputs/apk/release/airllm-release.apk
+          retention-days: 14
+          if-no-files-found: warn
