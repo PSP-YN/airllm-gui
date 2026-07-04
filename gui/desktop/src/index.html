@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="AirLLM — Run large language models on any GPU with layer-wise inference" />
+  <title>AirLLM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Title bar -->
+  <div class="titlebar" data-tauri-drag-region>
+    <div class="titlebar-logo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#39B1D1" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M2 17L12 22L22 17" stroke="#39B1D1" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M2 12L12 17L22 12" stroke="#E4FD85" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+      <span>AirLLM</span>
+    </div>
+    <div class="titlebar-status" id="status-badge">
+      <span class="status-dot"></span>
+      <span id="status-text">Ready</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <nav class="tab-bar" role="tablist">
+    <button class="tab active" id="tab-device" role="tab" aria-selected="true" aria-controls="panel-device" onclick="switchTab('device')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      Device Analysis
+    </button>
+    <button class="tab" id="tab-run" role="tab" aria-selected="false" aria-controls="panel-run" onclick="switchTab('run')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/></svg>
+      Run Model
+    </button>
+    <button class="tab" id="tab-perf" role="tab" aria-selected="false" aria-controls="panel-perf" onclick="switchTab('perf')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      Performance
+    </button>
+  </nav>
+
+  <!-- ── PANEL: Device Analysis ── -->
+  <section class="panel active" id="panel-device" role="tabpanel">
+    <div class="panel-inner">
+      <div class="section-header">
+        <h1>System Analysis</h1>
+        <p>Hardware compatibility and AirLLM readiness check</p>
+      </div>
+
+      <!-- Hardware cards -->
+      <div class="hw-grid">
+        <div class="hw-card" id="card-cpu">
+          <div class="hw-card-icon cpu-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
+          </div>
+          <div class="hw-card-info">
+            <span class="hw-label">CPU</span>
+            <span class="hw-value" id="info-cpu">Detecting…</span>
+          </div>
+        </div>
+        <div class="hw-card" id="card-ram">
+          <div class="hw-card-icon ram-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 6V4M10 6V4M14 6V4M18 6V4M6 18v2M10 18v2M14 18v2M18 18v2"/></svg>
+          </div>
+          <div class="hw-card-info">
+            <span class="hw-label">System RAM</span>
+            <span class="hw-value" id="info-ram">Detecting…</span>
+          </div>
+        </div>
+        <div class="hw-card" id="card-gpu">
+          <div class="hw-card-icon gpu-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="22" height="12" rx="2"/><path d="M7 12h2M11 12h2M15 12h2"/></svg>
+          </div>
+          <div class="hw-card-info">
+            <span class="hw-label">GPU / VRAM</span>
+            <span class="hw-value" id="info-gpu">Detecting…</span>
+          </div>
+        </div>
+        <div class="hw-card" id="card-python">
+          <div class="hw-card-icon py-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z"/><path d="M12 8v8M8 12h8"/></svg>
+          </div>
+          <div class="hw-card-info">
+            <span class="hw-label">Python</span>
+            <span class="hw-value" id="info-python">Detecting…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- AirLLM install check -->
+      <div class="install-check" id="airllm-check">
+        <div class="install-check-inner">
+          <div class="install-icon" id="install-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <div class="install-text">
+            <strong id="install-title">Checking AirLLM…</strong>
+            <span id="install-desc">Verifying Python package installation</span>
+          </div>
+          <button class="btn-install" id="btn-install" onclick="installAirllm()" style="display:none">
+            Install AirLLM
+          </button>
+        </div>
+        <div class="install-log" id="install-log" style="display:none"></div>
+      </div>
+
+      <!-- Model compatibility matrix -->
+      <div class="compat-section">
+        <h2>Model Compatibility</h2>
+        <p class="compat-subtitle">Based on your detected hardware</p>
+        <div class="compat-table-wrap">
+          <table class="compat-table" id="compat-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Full VRAM</th>
+                <th>AirLLM VRAM</th>
+                <th>Saving</th>
+                <th>Your Hardware</th>
+              </tr>
+            </thead>
+            <tbody id="compat-tbody">
+              <!-- filled by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PANEL: Run Model ── -->
+  <section class="panel" id="panel-run" role="tabpanel">
+    <div class="panel-inner">
+      <div class="run-layout">
+        <!-- Sidebar: config -->
+        <aside class="run-sidebar">
+          <div class="sidebar-section">
+            <label class="field-label" for="model-select">Model</label>
+            <select class="field-select" id="model-select">
+              <optgroup label="HuggingFace Models">
+                <option value="meta-llama/Llama-2-7b-hf">Llama 2 7B</option>
+                <option value="meta-llama/Llama-2-13b-hf">Llama 2 13B</option>
+                <option value="meta-llama/Llama-2-70b-hf">Llama 2 70B</option>
+                <option value="mistralai/Mistral-7B-v0.1">Mistral 7B</option>
+                <option value="google/gemma-7b">Gemma 7B</option>
+                <option value="Qwen/Qwen2-7B">Qwen2 7B</option>
+              </optgroup>
+              <optgroup label="Custom">
+                <option value="custom">Custom model path…</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="sidebar-section" id="custom-model-section" style="display:none">
+            <label class="field-label" for="custom-model-input">Custom Model Path / HF ID</label>
+            <input class="field-input" id="custom-model-input" type="text" placeholder="org/model-name or /path/to/model" />
+          </div>
+
+          <div class="sidebar-section">
+            <label class="field-label" for="max-tokens">Max New Tokens
+              <span class="field-value-badge" id="tokens-badge">512</span>
+            </label>
+            <input class="field-range" id="max-tokens" type="range" min="64" max="2048" value="512" step="64"
+              oninput="document.getElementById('tokens-badge').textContent=this.value" />
+            <div class="range-labels"><span>64</span><span>2048</span></div>
+          </div>
+
+          <div class="sidebar-section">
+            <label class="field-label" for="compression-ratio">Compression Ratio
+              <span class="field-value-badge" id="compression-badge">4</span>x
+            </label>
+            <input class="field-range" id="compression-ratio" type="range" min="1" max="8" value="4" step="1"
+              oninput="document.getElementById('compression-badge').textContent=this.value" />
+            <div class="range-labels"><span>1×</span><span>8×</span></div>
+          </div>
+
+          <div class="sidebar-actions">
+            <button class="btn-primary" id="btn-load" onclick="loadModel()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Load Model
+            </button>
+            <button class="btn-danger" id="btn-stop" onclick="stopInference()" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+              Stop
+            </button>
+          </div>
+
+          <div class="model-status" id="model-status">
+            <div class="status-indicator idle" id="model-status-indicator"></div>
+            <span id="model-status-text">No model loaded</span>
+          </div>
+        </aside>
+
+        <!-- Main: chat -->
+        <main class="run-chat">
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-welcome">
+              <div class="welcome-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#39B1D1" stroke-width="1.5" stroke-linejoin="round"/>
+                  <path d="M2 17L12 22L22 17" stroke="#39B1D1" stroke-width="1.5" stroke-linejoin="round"/>
+                  <path d="M2 12L12 17L22 12" stroke="#E4FD85" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <h2>AirLLM Ready</h2>
+              <p>Select a model from the sidebar, click <strong>Load Model</strong>, then start chatting.</p>
+              <p class="welcome-note">AirLLM splits model layers across your available memory — <br/>run 70B models on a single 4GB GPU.</p>
+            </div>
+          </div>
+
+          <div class="chat-input-wrap">
+            <textarea class="chat-input" id="chat-input" placeholder="Type your message… (Shift+Enter for new line, Enter to send)"
+              onkeydown="handleChatKey(event)" rows="1" oninput="autoResize(this)"></textarea>
+            <button class="chat-send-btn" id="btn-send" onclick="sendMessage()" title="Send (Enter)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+            </button>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PANEL: Performance ── -->
+  <section class="panel" id="panel-perf" role="tabpanel">
+    <div class="panel-inner">
+      <div class="section-header">
+        <h1>Performance & VRAM Savings</h1>
+        <p>Estimated VRAM comparison — illustrative benchmarks, not live GPU metrics</p>
+      </div>
+
+      <div class="perf-grid">
+        <!-- VRAM bar chart -->
+        <div class="perf-card full-width">
+          <h2>VRAM Required — Standard vs AirLLM</h2>
+          <div class="vram-chart" id="vram-chart">
+            <!-- Rendered by JS -->
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot standard"></span> Standard Loading</span>
+            <span class="legend-item"><span class="legend-dot airllm"></span> AirLLM (layer-wise)</span>
+          </div>
+        </div>
+
+        <!-- How it works -->
+        <div class="perf-card">
+          <h2>How It Works</h2>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-body">
+                <strong>Layer-wise Loading</strong>
+                <p>Instead of loading the entire model into GPU memory, AirLLM loads one transformer layer at a time.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-body">
+                <strong>Compute &amp; Offload</strong>
+                <p>Each layer runs inference on GPU, then its weights are immediately moved back to CPU/disk — freeing VRAM.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-body">
+                <strong>Compression</strong>
+                <p>Optional quantization (int4/int8) further reduces the memory footprint by up to 8×.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="perf-card">
+          <h2>Key Metrics</h2>
+          <div class="metric-list">
+            <div class="metric-item">
+              <span class="metric-label">Min GPU VRAM needed</span>
+              <span class="metric-value teal">4 GB</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Max model size supported</span>
+              <span class="metric-value lime">70B+</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">VRAM reduction</span>
+              <span class="metric-value teal">Up to 95%</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Compression ratio</span>
+              <span class="metric-value lime">Up to 8×</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Supported backends</span>
+              <span class="metric-value teal">CUDA, MPS, CPU</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

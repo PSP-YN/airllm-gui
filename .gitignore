@@ -1,0 +1,80 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# HuggingFace Cache
+.cache/huggingface/
+
+# Model files (large)
+*.bin
+*.safetensors
+*.gguf
+*.ggml
+models/
+checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# GUI builds
+gui/desktop/src-tauri/target/
+gui/desktop/node_modules/
+gui/desktop/dist/
+gui/android/.gradle/
+gui/android/build/
+gui/android/.kotlin/
+gui/android/app/build/
+gui/android/local.properties
+*.apk
+*.aab
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Tauri schema (downloaded)
+gui/desktop/src-tauri/tauri-schema.json
+
+# Temporary files
+*.tmp
+*.temp

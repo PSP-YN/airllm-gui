@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  airllm:
+    build: .
+    container_name: airllm-backend
+    volumes:
+      - ./models:/app/models
+      - ./cache:/app/.cache/huggingface
+    environment:
+      - AIRLLM_CACHE_DIR=/app/.cache/huggingface
+      - AIRLLM_LOG_LEVEL=INFO
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped

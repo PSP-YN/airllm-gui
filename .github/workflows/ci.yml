@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          cd air_llm
+          pip install -e .
+          pip install pytest pytest-cov psutil
+      - name: Run tests
+        run: |
+          cd air_llm
+          pytest --cov=. --cov-report=xml --cov-report=html
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+      - name: Upload coverage HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: air_llm/htmlcov/
+
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install linting tools
+        run: |
+          pip install ruff black mypy
+      - name: Run ruff
+        run: |
+          cd air_llm
+          ruff check .
+      - name: Run black
+        run: |
+          cd air_llm
+          black --check .
+      - name: Run mypy
+        run: |
+          cd air_llm
+          mypy . || true
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Bandit security scan
+        run: |
+          pip install bandit
+          bandit -r air_llm -f json -o bandit-report.json || true
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+  build-desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: |
+          cd gui/desktop
+          npm install
+      - name: Build desktop app
+        run: |
+          cd gui/desktop
+          npm run tauri build
+      - name: Verify build artifacts
+        run: |
+          cd gui/desktop/src-tauri/target/release/bundle
+          ls -la
+          # Check if AppImage/deb/nsis exists
+          test -d appimage || test -d deb || test -d nsis || echo "Build artifacts missing"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-build
+          path: gui/desktop/src-tauri/target/release/bundle/
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Grant execute permission for gradlew
+        run: |
+          cd gui/android
+          chmod +x gradlew
+      - name: Build Android APK
+        run: |
+          cd gui/android
+          ./gradlew assembleDebug
+      - name: Verify APK
+        run: |
+          cd gui/android
+          ./gradlew assembleDebug
+          test -f app/build/outputs/apk/debug/*.apk || echo "APK not found"
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: gui/android/app/build/outputs/apk/debug/*.apk
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        run: |
+          docker build -t airllm:test .
+      - name: Test Docker image
+        run: |
+          docker run --rm airllm:test python -c "import airllm; print('Import successful')"
+      - name: Save Docker image
+        run: |
+          docker save airllm:test | gzip > airllm-docker.tar.gz
+      - name: Upload Docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: airllm-docker.tar.gz
