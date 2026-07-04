@@ -11,7 +11,7 @@
 If you discover a security vulnerability, please report it privately:
 
 1. **Do not** create a public issue
-2. Email: gavinli@animaai.cloud
+2. Email: psppspyn@gmail.com
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce
