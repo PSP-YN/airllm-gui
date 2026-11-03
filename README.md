@@ -441,3 +441,11 @@ This repository is a cleaned and documented version of the original AirLLM proje
 ## License
 
 This project is provided as-is for educational and research purposes.
+
+
+## Project documentation
+
+- [Contributing](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
