@@ -1,56 +1,149 @@
-# AirLLM Native GUI 🚀
+# AirLLM Native GUI
 
-Welcome to the **Native Desktop & Android GUI** for [AirLLM](https://github.com/lyogavin/airllm) (originally created by Gavin Li / @lyogavin).
+Native desktop and Android applications for running large language models on consumer hardware — no cloud required.
 
-This repository contains the standalone graphical interfaces that allow anyone to run large language models on consumer hardware without the command line, leveraging AirLLM's powerful layer-wise inference on the desktop, and MediaPipe on Android.
+- **Desktop (Windows & Linux):** Layer-wise inference via the [AirLLM](https://pypi.org/project/airllm/) Python package, wrapped in a Tauri v2 native app.
+- **Android:** On-device GGUF inference via Google MediaPipe Tasks GenAI.
 
-## Updates by PSP-YN ✨
+Maintained by [PSP-YN](https://github.com/PSP-YN). Download builds from [Releases](https://github.com/PSP-YN/airllm-gui/releases).
 
-I (PSP-YN) have added native desktop and mobile applications to make AirLLM accessible to everyone without needing complex terminal setups.
+---
 
-### 🖥️ Desktop (Windows & Linux)
-Built with Tauri v2, Rust, and WebKitGTK.
-- **System Analysis:** Automatically detects CPU, System RAM, and GPU VRAM availability.
-- **AirLLM Integration:** Automatically installs/upgrades the AirLLM Python backend if missing.
-- **Layer-wise Inference:** Runs models like Llama-3.1 70B on 4GB VRAM!
-- **Interactive Chat:** Streaming output with syntax highlighting.
-- **Performance Metrics:** Real-time VRAM savings visualization.
-- **Easy Installers:** `.exe` NSIS installer for Windows, `.AppImage` / `.deb` / `.rpm` for Linux.
+## Downloads
 
-### 📱 Android
-Built with Kotlin, Jetpack Compose, and Google MediaPipe Tasks GenAI.
-- **On-Device Inference:** Run small GGUF models directly on your phone completely offline.
-- **Model Downloader:** Built-in download manager for Gemma, Qwen, Phi-3, and TinyLlama.
-- **Background Execution:** Foreground service keeps generation alive even if the screen turns off.
-- **Material3 Design:** Modern, sleek, dark-mode native Android experience.
+| Platform | File | Notes |
+|----------|------|-------|
+| Windows | `AirLLM_x64-setup.exe` | NSIS installer, no admin required |
+| Linux | `AirLLM.AppImage` | Portable — `chmod +x` then run |
+| Linux | `AirLLM_amd64.deb` | Debian/Ubuntu package |
+| Android | `airllm-release.apk` | Sideload (enable Install from unknown sources) |
 
-## Downloads ⬇️
+---
 
-Check the [Releases](https://github.com/PSP-YN/airllm-gui/releases) page for the latest builds:
-- `AirLLM_x64-setup.exe` (Windows)
-- `AirLLM.AppImage` (Linux Portable)
-- `airllm-release.apk` (Android)
+## Desktop App (Windows + Linux)
 
-## Building from Source 🛠️
+Built with **Tauri v2**, Rust, and a vanilla HTML/JS frontend.
 
-### Desktop (Linux/Windows)
-Ensure Node.js 20+ and Rust are installed.
+### Features
+
+- System analysis — detects CPU, RAM, GPU VRAM, and Python
+- One-click install/upgrade of the AirLLM Python backend via pip
+- Model preloading with real status feedback
+- Interactive chat with streaming token output
+- Multi-turn conversation history
+- Configurable max tokens and compression ratio
+- Estimated VRAM savings comparison chart
+- Installers: `.exe` (NSIS), `.AppImage`, `.deb`, `.rpm`
+
+### First Run
+
+The app checks for Python 3.8+ and the `airllm` pip package on startup. If missing, click **Install AirLLM** on the Device Analysis tab.
+
+### Build from Source
+
+**Prerequisites:** Node.js 20+, Rust (stable), Python 3.8+ with pip
+
 ```bash
 cd gui/desktop
 npm install
-npm run tauri build
+npm run tauri dev      # development
+npm run tauri build    # production
 ```
 
-### Android
-Ensure JDK 17 and Android SDK/NDK are installed.
+**Output:**
+- Linux AppImage: `gui/desktop/src-tauri/target/release/bundle/appimage/`
+- Linux deb: `gui/desktop/src-tauri/target/release/bundle/deb/`
+- Windows installer: `gui/desktop/src-tauri/target/release/bundle/nsis/`
+
+---
+
+## Android App
+
+Built with **Kotlin**, **Jetpack Compose**, and **Google MediaPipe Tasks GenAI**.
+
+### Features
+
+- On-device offline GGUF inference
+- Built-in model downloader (HuggingFace)
+- Streaming chat with per-model prompt templates
+- Foreground service keeps generation alive in background
+- Material 3 dark-mode UI
+
+### Requirements
+
+- Android 8.0+ (API 26+), ARM64 or x86_64
+- 2–6 GB RAM depending on model
+- Internet for initial model download
+
+### Supported Models
+
+| Model | Size | Min RAM | Best For |
+|-------|------|---------|----------|
+| Gemma 3 1B (recommended) | 0.8 GB | 3 GB | Most devices |
+| TinyLlama 1.1B | 0.7 GB | 2 GB | Oldest/slowest devices |
+| Gemma 2 2B | 1.5 GB | 4 GB | Mid-range devices |
+| Phi-3 Mini 3.8B | 2.2 GB | 6 GB | High-end devices |
+| Qwen2 1.5B | 1.0 GB | 3 GB | Multilingual use |
+
+### Build from Source
+
+**Prerequisites:** JDK 17, Android SDK 34+, NDK r26+
+
 ```bash
 cd gui/android
-./gradlew assembleRelease
+./gradlew assembleDebug      # debug APK
+./gradlew assembleRelease    # release APK
 ```
 
-## Credits & Acknowledgements 🙏
-- **AirLLM Core:** All core layer-wise inference logic and the original Python package were created by [Gavin Li (@lyogavin)](https://github.com/lyogavin/airllm). This GUI repository builds upon that incredible work.
-- **GUI & Native Apps:** Developed and maintained by PSP-YN.
+**Output:** `gui/android/app/build/outputs/apk/`
 
-## License 📜
-Apache-2.0 License. See [LICENSE](LICENSE) for details.
+---
+
+## Release Workflow
+
+Tag a version to trigger GitHub Actions builds for all three platforms:
+
+```bash
+git tag v1.0.0
+git push --tags
+```
+
+Then go to GitHub → Releases → find the draft → publish it.
+
+CI builds Windows NSIS installer, Linux AppImage/deb/rpm, and signed Android APK automatically.
+
+---
+
+## Architecture
+
+```
+gui/
+├── desktop/              Tauri v2 (Rust + HTML/JS)
+│   ├── src/              Frontend UI (3 tabs)
+│   ├── src-tauri/        Rust backend + Python scripts
+│   │   └── scripts/      inference.py, preload.py
+│   └── package.json
+└── android/              Kotlin + Jetpack Compose
+    └── app/              MediaPipe GenAI on-device inference
+.github/
+└── workflows/
+    └── release.yml       Auto-build on git tag
+```
+
+**Desktop flow:** UI → Tauri commands → Python subprocess (`airllm` pip package) → streamed JSON tokens → UI
+
+**Android flow:** UI → MediaPipe `LlmInference` → GGUF files downloaded from HuggingFace
+
+---
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
+
+---
+
+## Acknowledgements
+
+**Gavin Li ([@lyogavin](https://github.com/lyogavin))** — Original creator of AirLLM. All core layer-wise inference logic and the Python package ([lyogavin/airllm](https://github.com/lyogavin/airllm)) that powers the desktop app were developed by Gavin Li. This GUI repository builds upon that work.
+
+**PSP-YN** — Native desktop (Tauri) and Android (Compose + MediaPipe) GUI applications, CI release pipeline, and ongoing maintenance.

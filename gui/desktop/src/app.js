@@ -9,6 +9,8 @@ const state = {
   systemInfo: null,
   currentMsgEl: null,
   unlisten: null,
+  chatHistory: [],
+  loadedModelId: null,
 };
 
 // Model compatibility data (full VRAM | AirLLM min VRAM)
@@ -182,25 +184,40 @@ window.loadModel = async function() {
 
   if (!modelId) return;
 
+  const compressionRatio = parseInt(document.getElementById('compression-ratio').value, 10);
+
   setModelStatus('loading', `Loading ${modelId.split('/').pop()}…`);
   setStatusBadge('running', 'Loading model…');
   document.getElementById('btn-load').disabled = true;
 
-  // The actual model download/cache is handled by airllm Python
-  // For UX we just mark it ready after a brief moment (real load happens at inference time)
-  setTimeout(() => {
+  try {
+    await invoke('preload_model', {
+      modelName: modelId,
+      compressionRatio,
+    });
+
     state.modelLoaded = true;
+    state.loadedModelId = modelId;
+    state.chatHistory = [];
+
     setModelStatus('ready', `${modelId.split('/').pop()} ready`);
     setStatusBadge('ready', 'Model ready');
-    document.getElementById('btn-load').disabled = false;
     document.getElementById('btn-send').disabled = false;
 
-    // Clear welcome screen
     const welcome = document.querySelector('.chat-welcome');
     if (welcome) welcome.remove();
 
-    addSystemMessage(`Model **${modelId}** loaded via AirLLM. Starting chat…`);
-  }, 800);
+    document.getElementById('chat-messages').innerHTML = '';
+    addSystemMessage(`Model ${modelId} loaded via AirLLM. Starting chat…`);
+  } catch (e) {
+    state.modelLoaded = false;
+    state.loadedModelId = null;
+    setModelStatus('idle', 'Load failed');
+    setStatusBadge('ready', 'Load failed');
+    addSystemMessage(`Failed to load model: ${e}`);
+  } finally {
+    document.getElementById('btn-load').disabled = false;
+  }
 };
 
 window.stopInference = async function() {
@@ -232,6 +249,17 @@ window.autoResize = function(el) {
   el.style.height = Math.min(el.scrollHeight, 160) + 'px';
 };
 
+function buildPrompt(userMessage) {
+  const history = state.chatHistory.slice(-10);
+  const lines = history.map(turn => {
+    const role = turn.role === 'user' ? 'User' : 'Assistant';
+    return `${role}: ${turn.content}`;
+  });
+  lines.push(`User: ${userMessage}`);
+  lines.push('Assistant:');
+  return lines.join('\n');
+}
+
 window.sendMessage = async function() {
   if (!state.modelLoaded || state.inferring) return;
 
@@ -242,11 +270,15 @@ window.sendMessage = async function() {
   inputEl.value = '';
   inputEl.style.height = 'auto';
 
-  const modelId = document.getElementById('model-select').value === 'custom'
-    ? document.getElementById('custom-model-input').value.trim()
-    : document.getElementById('model-select').value;
+  const modelId = state.loadedModelId || (
+    document.getElementById('model-select').value === 'custom'
+      ? document.getElementById('custom-model-input').value.trim()
+      : document.getElementById('model-select').value
+  );
 
-  const maxTokens = parseInt(document.getElementById('max-tokens').value);
+  const maxTokens = parseInt(document.getElementById('max-tokens').value, 10);
+  const compressionRatio = parseInt(document.getElementById('compression-ratio').value, 10);
+  const fullPrompt = buildPrompt(prompt);
 
   // Add user bubble
   addMessage('user', prompt);
@@ -262,12 +294,15 @@ window.sendMessage = async function() {
   setModelStatus('running', 'Generating…');
   setStatusBadge('running', 'Generating…');
 
+  let assistantText = '';
+
   // Listen for streamed tokens
   state.unlisten = await listen('inference-output', (event) => {
     const data = event.payload;
     if (!state.currentMsgEl) return;
 
     if (data.type === 'token' && data.text) {
+      assistantText += data.text;
       const cursor = state.currentMsgEl.querySelector('.cursor');
       if (cursor) {
         cursor.insertAdjacentText('beforebegin', data.text);
@@ -281,28 +316,36 @@ window.sendMessage = async function() {
       if (data.type === 'error') {
         state.currentMsgEl.textContent += `\n[Error: ${data.text}]`;
         state.currentMsgEl.style.color = 'var(--red)';
+        finishInference(prompt, '', true);
+      } else {
+        finishInference(prompt, assistantText, false);
       }
-      finishInference();
     }
   });
 
   try {
     await invoke('run_inference', {
       modelName: modelId,
-      prompt,
+      prompt: fullPrompt,
       maxTokens,
-      processState: null,
+      compressionRatio,
     });
   } catch (e) {
     if (state.currentMsgEl) {
       state.currentMsgEl.textContent = `Error: ${e}`;
       state.currentMsgEl.style.color = 'var(--red)';
     }
-    finishInference();
+    finishInference(prompt, '', true);
   }
 };
 
-function finishInference() {
+function finishInference(userPrompt, assistantText, isError) {
+  if (!isError && userPrompt && assistantText) {
+    state.chatHistory.push({ role: 'user', content: userPrompt });
+    state.chatHistory.push({ role: 'assistant', content: assistantText });
+  } else if (!isError && userPrompt) {
+    state.chatHistory.push({ role: 'user', content: userPrompt });
+  }
   state.inferring = false;
   state.currentMsgEl = null;
   if (state.unlisten) { state.unlisten(); state.unlisten = null; }

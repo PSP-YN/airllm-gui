@@ -38,9 +38,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [],
+    "resources": ["scripts/*"],
     "externalBin": [],
-    "copyright": "© 2024 AirLLM Contributors",
+    "copyright": "© 2024-2026 PSP-YN",
     "category": "DeveloperTool",
     "shortDescription": "Run LLMs on any GPU with layer-wise inference",
     "longDescription": "AirLLM enables running large language models on consumer hardware by splitting model layers across available memory. Native desktop application for Windows and Linux.",

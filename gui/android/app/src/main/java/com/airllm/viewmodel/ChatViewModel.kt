@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.airllm.model.ChatTemplate
 import com.airllm.service.InferenceService
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions
@@ -27,7 +28,7 @@ data class ChatMessage(
 sealed class ModelState {
     object None : ModelState()
     data class Loading(val modelName: String) : ModelState()
-    data class Ready(val modelName: String, val modelPath: String) : ModelState()
+    data class Ready(val modelName: String, val modelPath: String, val chatTemplate: ChatTemplate) : ModelState()
     data class Error(val message: String) : ModelState()
 }
 
@@ -57,7 +58,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Model loading ──────────────────────────────────────────────────────────
 
-    fun loadModel(modelPath: String, modelName: String) {
+    fun loadModel(modelPath: String, modelName: String, chatTemplate: ChatTemplate = ChatTemplate.Gemma) {
         viewModelScope.launch(Dispatchers.IO) {
             _modelState.value = ModelState.Loading(modelName)
 
@@ -97,7 +98,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     .build()
 
                 llmInference = LlmInference.createFromOptions(ctx, options)
-                _modelState.value = ModelState.Ready(modelName, modelPath)
+                _modelState.value = ModelState.Ready(modelName, modelPath, chatTemplate)
             } catch (e: Exception) {
                 _modelState.value = ModelState.Error("Failed to load model: ${e.message}")
             }
@@ -188,15 +189,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // ── Prompt formatting (Gemma instruct template) ───────────────────────────
 
     private fun buildPrompt(userMessage: String): String {
+        val state = _modelState.value
+        val template = if (state is ModelState.Ready) state.chatTemplate else ChatTemplate.Gemma
+
         val history = _messages.value
-            .dropLast(1) // skip empty streaming placeholder
+            .dropLast(1)
             .takeLast(10)
+
+        return when (template) {
+            ChatTemplate.Gemma -> buildGemmaPrompt(history, userMessage)
+            ChatTemplate.TinyLlama -> buildTinyLlamaPrompt(history, userMessage)
+            ChatTemplate.Phi3 -> buildPhi3Prompt(history, userMessage)
+            ChatTemplate.Qwen -> buildQwenPrompt(history, userMessage)
+        }
+    }
+
+    private fun buildGemmaPrompt(history: List<ChatMessage>, userMessage: String): String {
         val sb = StringBuilder()
-        // System turn
         sb.append("<start_of_turn>user\n")
         sb.append("You are AirLLM, a helpful AI assistant running entirely on-device. No data leaves your device.\n")
         sb.append("<end_of_turn>\n")
-        // Conversation history
         for (msg in history) {
             when (msg.role) {
                 ChatMessage.Role.User ->
@@ -207,6 +219,42 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         sb.append("<start_of_turn>user\n$userMessage<end_of_turn>\n")
         sb.append("<start_of_turn>model\n")
+        return sb.toString()
+    }
+
+    private fun buildTinyLlamaPrompt(history: List<ChatMessage>, userMessage: String): String {
+        val sb = StringBuilder("<|system|>\nYou are AirLLM, a helpful on-device assistant.\n")
+        for (msg in history) {
+            when (msg.role) {
+                ChatMessage.Role.User -> sb.append("<|user|>\n${msg.content}\n")
+                ChatMessage.Role.Assistant -> sb.append("<|assistant|>\n${msg.content}\n")
+            }
+        }
+        sb.append("<|user|>\n$userMessage\n<|assistant|>\n")
+        return sb.toString()
+    }
+
+    private fun buildPhi3Prompt(history: List<ChatMessage>, userMessage: String): String {
+        val sb = StringBuilder("<|system|>\nYou are AirLLM, a helpful on-device assistant.<|end|>\n")
+        for (msg in history) {
+            when (msg.role) {
+                ChatMessage.Role.User -> sb.append("<|user|>\n${msg.content}<|end|>\n")
+                ChatMessage.Role.Assistant -> sb.append("<|assistant|>\n${msg.content}<|end|>\n")
+            }
+        }
+        sb.append("<|user|>\n$userMessage<|end|>\n<|assistant|>\n")
+        return sb.toString()
+    }
+
+    private fun buildQwenPrompt(history: List<ChatMessage>, userMessage: String): String {
+        val sb = StringBuilder("<|im_start|>system\nYou are AirLLM, a helpful on-device assistant.\n")
+        for (msg in history) {
+            when (msg.role) {
+                ChatMessage.Role.User -> sb.append("<|im_start|>user\n${msg.content}\n")
+                ChatMessage.Role.Assistant -> sb.append("<|im_start|>assistant\n${msg.content}\n")
+            }
+        }
+        sb.append("<|im_start|>user\n$userMessage\n<|im_start|>assistant\n")
         return sb.toString()
     }
 

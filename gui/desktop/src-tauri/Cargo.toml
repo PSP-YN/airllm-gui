@@ -2,11 +2,10 @@
 name = "airllm-desktop"
 version = "0.1.0"
 description = "AirLLM Native Desktop App"
-authors = ["AirLLM Contributors"]
-license = "MIT"
-repository = "https://github.com/lyogavin/Anima"
+authors = ["PSP-YN"]
+license = "Apache-2.0"
+repository = "https://github.com/PSP-YN/airllm-gui"
 edition = "2021"
-rust-edition = "2021"
 
 [lib]
 name = "airllm_desktop_lib"

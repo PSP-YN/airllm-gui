@@ -2,6 +2,11 @@
   "name": "airllm-desktop",
   "version": "0.1.0",
   "description": "AirLLM Native Desktop App",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PSP-YN/airllm-gui.git"
+  },
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

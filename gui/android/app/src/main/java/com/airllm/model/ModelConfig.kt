@@ -3,17 +3,25 @@ package com.airllm.model
 /**
  * Defines all supported models with their download URLs and hardware requirements.
  */
+enum class ChatTemplate {
+    Gemma,
+    TinyLlama,
+    Phi3,
+    Qwen,
+}
+
 data class ModelConfig(
     val id: String,
     val displayName: String,
     val description: String,
     val parametersBillion: Float,
-    val sizeGB: Float,           // quantized Q4_K_M
+    val sizeGB: Float,
     val minRamGB: Int,
     val huggingFaceUrl: String,
     val fileName: String,
     val quantization: String = "Q4_K_M",
     val isRecommended: Boolean = false,
+    val chatTemplate: ChatTemplate = ChatTemplate.Gemma,
 )
 
 object ModelRegistry {
@@ -28,6 +36,7 @@ object ModelRegistry {
             huggingFaceUrl = "https://huggingface.co/bartowski/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf",
             fileName = "gemma-3-1b-it-Q4_K_M.gguf",
             isRecommended = true,
+            chatTemplate = ChatTemplate.Gemma,
         ),
         ModelConfig(
             id = "tinyllama-1b-q4",
@@ -38,6 +47,7 @@ object ModelRegistry {
             minRamGB = 2,
             huggingFaceUrl = "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
             fileName = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+            chatTemplate = ChatTemplate.TinyLlama,
         ),
         ModelConfig(
             id = "gemma2-2b-q4",
@@ -48,6 +58,7 @@ object ModelRegistry {
             minRamGB = 4,
             huggingFaceUrl = "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
             fileName = "gemma-2-2b-it-Q4_K_M.gguf",
+            chatTemplate = ChatTemplate.Gemma,
         ),
         ModelConfig(
             id = "phi3-mini-q4",
@@ -58,6 +69,7 @@ object ModelRegistry {
             minRamGB = 6,
             huggingFaceUrl = "https://huggingface.co/bartowski/Phi-3-mini-4k-instruct-GGUF/resolve/main/Phi-3-mini-4k-instruct-Q4_K_M.gguf",
             fileName = "Phi-3-mini-4k-instruct-Q4_K_M.gguf",
+            chatTemplate = ChatTemplate.Phi3,
         ),
         ModelConfig(
             id = "qwen2-1.5b-q4",
@@ -68,6 +80,7 @@ object ModelRegistry {
             minRamGB = 3,
             huggingFaceUrl = "https://huggingface.co/Qwen/Qwen2-1.5B-Instruct-GGUF/resolve/main/qwen2-1_5b-instruct-q4_k_m.gguf",
             fileName = "qwen2-1_5b-instruct-q4_k_m.gguf",
+            chatTemplate = ChatTemplate.Qwen,
         ),
     )
 

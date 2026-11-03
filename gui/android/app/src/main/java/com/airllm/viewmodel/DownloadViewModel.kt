@@ -3,7 +3,6 @@ package com.airllm.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.*
 import com.airllm.model.ModelConfig
 import com.airllm.model.ModelRegistry
 import kotlinx.coroutines.flow.*

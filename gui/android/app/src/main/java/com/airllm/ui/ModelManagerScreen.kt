@@ -109,6 +109,7 @@ fun ModelManagerScreen(
                         chatViewModel.loadModel(
                             modelPath  = downloadViewModel.getModelFile(model).absolutePath,
                             modelName  = model.displayName,
+                            chatTemplate = model.chatTemplate,
                         )
                         onBack()
                     },
